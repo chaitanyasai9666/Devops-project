@@ -1,0 +1,2 @@
+# Linux EC2 host runs these files; keep LF even when committed from Windows
+* text=auto eol=lf
