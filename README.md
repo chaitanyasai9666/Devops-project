@@ -21,6 +21,7 @@ configures, and shipped on every `git push` by a **Jenkins** CI/CD pipeline.
 |--------|----------------|--------------------------|-----------------------------------------------------------------|
 | POST   | `/api/analyze` | `{"text": "..."}` (≤10k) | `sentences, tokens, sentiment, score (-1..1), keywords, micros` |
 | GET    | `/health`      |                          | `{"status":"UP"}` (Kubernetes probes)                           |
+| GET    | `/`            |                          | Web page for trying `/api/analyze` in a browser                 |
 
 ```bash
 curl -X POST http://<EC2_IP>:30080/api/analyze -H 'Content-Type: application/json' \
