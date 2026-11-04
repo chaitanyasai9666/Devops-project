@@ -1,0 +1,2 @@
+aws_region: us-east-1   # keep in sync with inventory/aws_ec2.yml
+instance_type: m7i-flex.large # free-tier eligible, 8 GB: Jenkins + k3s + Maven builds don't fit in 1 GB

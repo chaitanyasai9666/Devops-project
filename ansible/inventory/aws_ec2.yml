@@ -1,0 +1,7 @@
+# Dynamic inventory: every running EC2 instance tagged Project=nlp-api lands in group "aws_ec2"
+plugin: amazon.aws.aws_ec2
+regions: [us-east-1] # keep in sync with group_vars/all.yml
+filters:
+  tag:Project: nlp-api
+  instance-state-name: running
+hostnames: [ip-address] # public IPv4

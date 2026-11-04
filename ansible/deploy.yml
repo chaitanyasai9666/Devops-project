@@ -1,0 +1,27 @@
+# Run by Jenkins on the EC2 host: ansible-playbook -i localhost, deploy.yml -e image=nlp-api:<build>
+- name: Deploy the NLP API to Kubernetes (k3s)
+  hosts: localhost
+  connection: local
+  environment:
+    K8S_AUTH_KUBECONFIG: /etc/rancher/k3s/k3s.yaml
+  tasks:
+    - name: Apply Deployment + Service and wait for the rolling update
+      kubernetes.core.k8s:
+        definition: "{{ lookup('ansible.builtin.template', '../k8s/nlp-api.yaml') | ansible.builtin.from_yaml_all | list }}"
+        wait: true
+        wait_timeout: 300
+
+    - name: Smoke test the live endpoint
+      ansible.builtin.uri:
+        url: "http://{{ ansible_default_ipv4.address }}:30080/api/analyze"
+        method: POST
+        body_format: json
+        body: { text: "Jenkins and Ansible make deployment great!" }
+      register: result
+      until: result.status == 200
+      retries: 10
+      delay: 3
+
+    - name: Show the API response
+      ansible.builtin.debug:
+        var: result.json
