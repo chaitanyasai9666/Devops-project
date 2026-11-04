@@ -1,0 +1,24 @@
+# Deletes everything site.yml created so the AWS bill stops: ansible-playbook teardown.yml
+- name: Tear down AWS resources
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  module_defaults:
+    group/amazon.aws.aws:
+      region: "{{ aws_region }}"
+  tasks:
+    - name: Terminate the instance
+      amazon.aws.ec2_instance:
+        state: absent
+        filters: { "tag:Project": nlp-api }
+        wait: true
+
+    - name: Delete the security group
+      amazon.aws.ec2_security_group:
+        name: nlp-api-sg
+        state: absent
+
+    - name: Delete the key pair
+      amazon.aws.ec2_key:
+        name: nlp-api
+        state: absent
