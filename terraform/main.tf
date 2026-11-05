@@ -30,6 +30,12 @@ variable "public_key_path" {
   default = "~/.ssh/nlp-api.pem.pub"
 }
 
+variable "extra_admin_cidrs" {
+  description = "More addresses allowed to use SSH and Jenkins, for networks whose public IP keeps changing. Set in terraform.tfvars."
+  type        = list(string)
+  default     = []
+}
+
 provider "aws" {
   region = var.aws_region
 }
@@ -43,7 +49,7 @@ data "http" "my_ip" {
 }
 
 locals {
-  admin_cidr = ["${trimspace(data.http.my_ip.response_body)}/32"]
+  admin_cidr = distinct(concat(["${trimspace(data.http.my_ip.response_body)}/32"], var.extra_admin_cidrs))
 }
 
 data "aws_ami" "ubuntu" {
