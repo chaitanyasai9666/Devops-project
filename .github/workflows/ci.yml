@@ -1,4 +1,4 @@
-# Tests only: deployment stays with the Jenkins pipeline on EC2 (see Jenkinsfile)
+# Tests and checks only: deployment stays with the Jenkins pipeline on EC2 (see Jenkinsfile)
 name: CI
 on: [push, pull_request]
 
@@ -13,3 +13,15 @@ jobs:
           java-version: '17'
           cache: maven
       - run: mvn -B clean verify
+
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check
+      - run: terraform init -backend=false
+      - run: terraform validate
