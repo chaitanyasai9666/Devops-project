@@ -18,6 +18,7 @@ spec:
           imagePullPolicy: Never # Jenkins loads the image straight into k3s, no registry
           ports:
             - containerPort: 8080
+            - containerPort: 8081 # metrics, for Prometheus only
           readinessProbe:
             httpGet: { path: /health, port: 8080 }
           livenessProbe:
@@ -38,3 +39,14 @@ spec:
     - port: 80
       targetPort: 8080
       nodePort: 30080
+---
+# Headless: Prometheus gets each pod's IP from this. Port 8081 is not on the public Service above.
+apiVersion: v1
+kind: Service
+metadata:
+  name: nlp-api-metrics
+spec:
+  clusterIP: None
+  selector: { app: nlp-api }
+  ports:
+    - port: 8081

@@ -35,6 +35,19 @@
         name: jenkins
         update_cache: true
 
+    - name: Add Trivy apt repo (with its signing key)
+      ansible.builtin.deb822_repository:
+        name: trivy
+        uris: https://get.trivy.dev/deb
+        suites: generic
+        components: main
+        signed_by: https://get.trivy.dev/deb/public.key
+
+    - name: Install Trivy (security scanner, run by Jenkins)
+      ansible.builtin.apt:
+        name: trivy
+        update_cache: true
+
     - name: Let Jenkins build Docker images
       ansible.builtin.user:
         name: jenkins
