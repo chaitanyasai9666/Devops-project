@@ -71,17 +71,25 @@
     - name: Apply the Jenkins restart now
       ansible.builtin.meta: flush_handlers
 
+    # Jenkins deletes this password once its setup wizard is finished, so only look for it before then
+    - name: Check whether Jenkins setup is finished
+      ansible.builtin.stat:
+        path: /var/lib/jenkins/jenkins.install.UpgradeWizard.state
+      register: jenkins_setup
+
     - name: Wait for Jenkins first-run password
       ansible.builtin.wait_for:
         path: /var/lib/jenkins/secrets/initialAdminPassword
+      when: not jenkins_setup.stat.exists
 
     - name: Read it
       ansible.builtin.slurp:
         src: /var/lib/jenkins/secrets/initialAdminPassword
       register: jenkins_pw
+      when: not jenkins_setup.stat.exists
 
     - name: Next steps
       ansible.builtin.debug:
         msg:
-          - "Jenkins: http://{{ inventory_hostname }}:8080  (initial admin password: {{ jenkins_pw.content | b64decode | trim }})"
-          - "API:     http://{{ inventory_hostname }}:30080/api/analyze  (live after the first pipeline run)"
+          - "Jenkins: http://{{ inventory_hostname }}:8080{{ '' if jenkins_setup.stat.exists else '  (initial admin password: ' ~ (jenkins_pw.content | b64decode | trim) ~ ')' }}"
+          - "App:     http://{{ inventory_hostname }}/"
