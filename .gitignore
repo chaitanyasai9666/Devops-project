@@ -5,3 +5,7 @@ dist/
 .env.*
 *.pem
 *.key
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
