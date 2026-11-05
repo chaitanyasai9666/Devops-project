@@ -7,6 +7,7 @@
   tasks:
     - name: Apply Deployment + Service and wait for the rolling update
       kubernetes.core.k8s:
+        namespace: default
         definition: "{{ lookup('ansible.builtin.template', '../k8s/nlp-api.yaml') | ansible.builtin.from_yaml_all | list }}"
         wait: true
         wait_timeout: 300
