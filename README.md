@@ -4,7 +4,7 @@
 A Spring Boot NLP API (sentence/word segmentation, sentiment with negation, keyword extraction) built with **Maven**,
 packaged with **Docker**, run on **Kubernetes (k3s)** on an **AWS EC2** Linux server that **Terraform** creates and **Ansible**
 configures, and shipped on every `git push` by a **Jenkins** CI/CD pipeline. **Trivy** scans each build for security
-problems, and **Prometheus** and **Grafana** monitor the running app.
+problems, and **Prometheus**, **Grafana** and **Alertmanager** monitor the running app.
 
 ```
  Laptop (WSL)                               AWS us-east-1
@@ -39,7 +39,7 @@ Run it locally: `mvn spring-boot:run` (or `mvn package && docker build -t nlp-ap
 pom.xml, src/                 Maven project: the API + JUnit tests
 Dockerfile, .dockerignore     container image
 k8s/nlp-api.yaml              Kubernetes Deployment + Service
-k8s/monitoring.yaml           Prometheus + Grafana, with a ready-made dashboard
+k8s/monitoring.yaml           Prometheus + Grafana + Alertmanager, with a ready-made dashboard and alert rule
 Jenkinsfile                   CI/CD pipeline
 terraform/main.tf             create the AWS infrastructure (key pair, security group, EC2)
 ansible/site.yml              set up the Linux server (Docker, k3s, Jenkins)
@@ -95,13 +95,21 @@ Wait about a minute after `terraform apply` so the server can finish its first b
 The pipeline runs **Maven build & test → Docker image → Trivy scan → load into Kubernetes → Ansible deploy + smoke test**.
 After the first build Jenkins polls the repo every ~2 minutes, so every `git push` redeploys with a rolling update.
 
-### 6. Monitoring (Prometheus + Grafana)
+### 6. Monitoring (Prometheus + Grafana + Alertmanager)
 They are deliberately not public, so open them through an SSH tunnel, which also works on networks that block other ports:
 ```bash
-ssh -p 443 -i ~/.ssh/nlp-api.pem -N -L 3000:localhost:30300 -L 9090:localhost:30090 ubuntu@<EC2_IP>
+ssh -p 443 -i ~/.ssh/nlp-api.pem -N -L 3000:localhost:30300 -L 9090:localhost:30090 -L 9093:localhost:30093 ubuntu@<EC2_IP>
 ```
 While that runs, open Grafana at `http://localhost:3000` (the **NLP API** dashboard is its home page) and Prometheus at
 `http://localhost:9090/targets`.
+
+The `NlpApiPodsMissing` alert fires when fewer than 2 app pods are healthy for 1 minute. See it in Prometheus at
+`http://localhost:9090/alerts` and in Alertmanager at `http://localhost:9093`. To try it, run these on the server:
+```bash
+sudo k3s kubectl scale deployment nlp-api --replicas=1   # alert fires in about 1-2 minutes
+sudo k3s kubectl scale deployment nlp-api --replicas=2   # alert clears
+```
+Alerts only appear on those pages for now. Add a receiver in `k8s/monitoring.yaml` to send them by email or Slack.
 
 ### 7. Security reports (Trivy)
 Open any Jenkins build and download `trivy-image.txt` and `trivy-config.txt` from **Build Artifacts**. The build stops
@@ -130,7 +138,7 @@ terraform destroy
 | 10 | CI/CD with Jenkins | `Jenkinsfile`: SCM polling trigger, 5 stages, JUnit test report, archived jar, deploy only if tests pass |
 | 11 | CI/CD with Maven | `pom.xml`: Spring Boot parent (dependency management), `clean verify` lifecycle (compile → test → package), Surefire reports, `target/nlp-api.jar` |
 | 12 | Infrastructure as code with Terraform | `terraform/main.tf`: AWS and HTTP providers, variables, data sources, resources, outputs; `init` → `apply` → `destroy`; `terraform validate` in GitHub Actions |
-| 13 | Monitoring | Spring Boot Actuator + Micrometer metrics on a private port, scraped by Prometheus and shown on a Grafana dashboard (`k8s/monitoring.yaml`) |
+| 13 | Monitoring | Spring Boot Actuator + Micrometer metrics on a private port, scraped by Prometheus and shown on a Grafana dashboard, with a pod-count alert in Alertmanager (`k8s/monitoring.yaml`) |
 | 14 | Security | Trivy image and configuration scans in Jenkins, with a gate on fixable critical vulnerabilities; admin ports limited by IP; non-root container; private metrics port |
 
 ## Team
