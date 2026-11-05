@@ -1,65 +1,4 @@
-# Run once from your laptop (WSL): ansible-playbook site.yml
-- name: Provision AWS infrastructure (key pair, security group, EC2)
-  hosts: localhost
-  connection: local
-  gather_facts: false
-  module_defaults:
-    group/amazon.aws.aws:
-      region: "{{ aws_region }}"
-  vars:
-    my_ip: "{{ lookup('ansible.builtin.url', 'https://checkip.amazonaws.com') | trim }}"
-  tasks:
-    - name: Create key pair
-      amazon.aws.ec2_key:
-        name: nlp-api
-      register: key
-
-    - name: Ensure ~/.ssh exists
-      ansible.builtin.file:
-        path: ~/.ssh
-        state: directory
-        mode: "0700"
-
-    - name: Save the private key (AWS returns it only on creation)
-      ansible.builtin.copy:
-        content: "{{ key.key.private_key }}"
-        dest: ~/.ssh/nlp-api.pem
-        mode: "0600"
-      when: key.changed
-
-    - name: Security group - SSH and Jenkins from your IP only, API open to everyone
-      amazon.aws.ec2_security_group:
-        name: nlp-api-sg
-        description: NLP API host
-        rules:
-          - { proto: tcp, ports: [22, 8080], cidr_ip: "{{ my_ip }}/32" }
-          - { proto: tcp, ports: [30080], cidr_ip: 0.0.0.0/0 }
-      register: sg
-
-    - name: Find the latest Ubuntu 24.04 AMI
-      amazon.aws.ec2_ami_info:
-        owners: ["099720109477"] # Canonical
-        filters:
-          name: ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*
-      register: amis
-
-    - name: Launch EC2 instance
-      amazon.aws.ec2_instance:
-        name: nlp-api
-        image_id: "{{ (amis.images | sort(attribute='creation_date') | last).image_id }}"
-        instance_type: "{{ instance_type }}"
-        key_name: nlp-api
-        security_group: "{{ sg.group_id }}"
-        volumes:
-          - device_name: /dev/sda1
-            ebs: { volume_size: 20, delete_on_termination: true }
-        tags: { Project: nlp-api }
-        state: running
-        wait: true
-
-    - name: Pick up the new instance in the aws_ec2 inventory
-      ansible.builtin.meta: refresh_inventory
-
+# Configures the server Terraform created (found by tag). From WSL, in this folder: ansible-playbook site.yml
 - name: Set up the Linux server (Docker, Kubernetes/k3s, Jenkins)
   hosts: aws_ec2
   become: true
@@ -110,8 +49,9 @@
         mode: "0440"
         validate: visudo -cf %s
 
+    # Traefik is off because it would take port 443, which this server uses for SSH
     - name: Install k3s (single-node Kubernetes; kubeconfig readable so Jenkins can deploy)
-      ansible.builtin.shell: curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644" sh -
+      ansible.builtin.shell: curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--write-kubeconfig-mode 644 --disable traefik" sh -
       args:
         creates: /usr/local/bin/k3s
 
