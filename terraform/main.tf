@@ -37,6 +37,9 @@ provider "aws" {
 # Admin ports are limited to whoever runs terraform apply; re-apply after your IP changes
 data "http" "my_ip" {
   url = "https://checkip.amazonaws.com"
+  retry {
+    attempts = 3
+  }
 }
 
 locals {
