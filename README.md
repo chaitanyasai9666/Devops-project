@@ -115,6 +115,8 @@ terraform destroy
 | 10 | CI/CD with Jenkins | `Jenkinsfile`: SCM polling trigger, 4 stages, JUnit test report, archived jar, deploy only if tests pass |
 | 11 | CI/CD with Maven | `pom.xml`: Spring Boot parent (dependency management), `clean verify` lifecycle (compile → test → package), Surefire reports, `target/nlp-api.jar` |
 | 12 | Infrastructure as code with Terraform | `terraform/main.tf`: AWS and HTTP providers, variables, data sources, resources, outputs; `init` → `apply` → `destroy`; `terraform validate` in GitHub Actions |
- ## Team
- -jayram
- 
+
+## Team
+- chaitanyasai9666
+- jayram
+- gnaneswar2006
