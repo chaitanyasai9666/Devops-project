@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NLP API</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+  label { display: block; font-weight: 600; margin-bottom: .25rem; }
+  textarea { width: 100%; box-sizing: border-box; font: inherit; padding: .5rem; }
+  button { font: inherit; padding: .5rem 1rem; margin-top: .5rem; cursor: pointer; }
+  dl:not([hidden]) { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; }
+  dt { font-weight: 600; }
+  dd { margin: 0; }
+  #error { color: #d32f2f; }
+</style>
+</head>
+<body>
+<h1>NLP API</h1>
+<p>Get the sentiment, keywords, sentence count and word count for any English text.</p>
+
+<form id="form">
+  <label for="text">Text (up to 10,000 characters)</label>
+  <textarea id="text" rows="6" maxlength="10000" required>Kubernetes is amazing. The old server was not fast and always crashed.</textarea>
+  <button>Analyze</button>
+</form>
+
+<p id="error" role="alert"></p>
+<dl id="result" aria-live="polite" hidden>
+  <dt>Sentiment</dt><dd id="sentiment"></dd>
+  <dt>Score (-1 to 1)</dt><dd id="score"></dd>
+  <dt>Keywords</dt><dd id="keywords"></dd>
+  <dt>Sentences</dt><dd id="sentences"></dd>
+  <dt>Tokens</dt><dd id="tokens"></dd>
+  <dt>Time</dt><dd id="micros"></dd>
+</dl>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  $('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    $('error').textContent = '';
+    $('result').hidden = true;
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: $('text').value })
+      });
+      if (!res.ok) throw new Error(res.status === 400 ? 'Enter 1 to 10,000 characters of text.' : `Server error (${res.status}).`);
+      const a = await res.json();
+      $('sentiment').textContent = a.sentiment;
+      $('score').textContent = a.score;
+      $('keywords').textContent = a.keywords.join(', ') || 'none';
+      $('sentences').textContent = a.sentences;
+      $('tokens').textContent = a.tokens;
+      $('micros').textContent = `${a.micros} µs`;
+      $('result').hidden = false;
+    } catch (err) {
+      $('error').textContent = err instanceof TypeError ? 'Could not reach the server.' : err.message;
+    }
+  });
+</script>
+</body>
+</html>
