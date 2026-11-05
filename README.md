@@ -3,7 +3,8 @@
 
 A Spring Boot NLP API (sentence/word segmentation, sentiment with negation, keyword extraction) built with **Maven**,
 packaged with **Docker**, run on **Kubernetes (k3s)** on an **AWS EC2** Linux server that **Terraform** creates and **Ansible**
-configures, and shipped on every `git push` by a **Jenkins** CI/CD pipeline.
+configures, and shipped on every `git push` by a **Jenkins** CI/CD pipeline. **Trivy** scans each build for security
+problems, and **Prometheus** and **Grafana** monitor the running app.
 
 ```
  Laptop (WSL)                               AWS us-east-1
@@ -38,6 +39,7 @@ Run it locally: `mvn spring-boot:run` (or `mvn package && docker build -t nlp-ap
 pom.xml, src/                 Maven project: the API + JUnit tests
 Dockerfile, .dockerignore     container image
 k8s/nlp-api.yaml              Kubernetes Deployment + Service
+k8s/monitoring.yaml           Prometheus + Grafana, with a ready-made dashboard
 Jenkinsfile                   CI/CD pipeline
 terraform/main.tf             create the AWS infrastructure (key pair, security group, EC2)
 ansible/site.yml              set up the Linux server (Docker, k3s, Jenkins)
@@ -90,10 +92,22 @@ Wait about a minute after `terraform apply` so the server can finish its first b
 3. **New Item** → `nlp-api` → **Pipeline** → Definition: *Pipeline script from SCM* → Git → your repo URL →
    branch `*/main` → Script Path `Jenkinsfile` → Save → **Build Now**.
 
-The pipeline runs **Maven build & test → Docker image → load into Kubernetes → Ansible deploy + smoke test**.
+The pipeline runs **Maven build & test → Docker image → Trivy scan → load into Kubernetes → Ansible deploy + smoke test**.
 After the first build Jenkins polls the repo every ~2 minutes, so every `git push` redeploys with a rolling update.
 
-### 6. Tear down (stop the bill)
+### 6. Monitoring (Prometheus + Grafana)
+They are deliberately not public, so open them through an SSH tunnel, which also works on networks that block other ports:
+```bash
+ssh -p 443 -i ~/.ssh/nlp-api.pem -N -L 3000:localhost:30300 -L 9090:localhost:30090 ubuntu@<EC2_IP>
+```
+While that runs, open Grafana at `http://localhost:3000` (the **NLP API** dashboard is its home page) and Prometheus at
+`http://localhost:9090/targets`.
+
+### 7. Security reports (Trivy)
+Open any Jenkins build and download `trivy-image.txt` and `trivy-config.txt` from **Build Artifacts**. The build stops
+before deploying if the image has a critical vulnerability that already has a fix.
+
+### 8. Tear down (stop the bill)
 `m7i-flex.large` is free-tier eligible, but free hours/credits run out if it stays on. When you're done:
 ```bash
 cd ~/nlp-api/terraform
@@ -113,9 +127,11 @@ terraform destroy
 | 7 | Docker images and containers | `Dockerfile` (Temurin JRE base layer + app jar layer, non-root user), `.dockerignore`, one image tag per build, `docker save` → `k3s ctr images import` |
 | 8 | Kubernetes cluster architecture | k3s: control plane (API server, scheduler, controller manager, datastore) + node (kubelet, kube-proxy, containerd). `k8s/nlp-api.yaml`: Deployment (2 replicas, readiness/liveness probes, resource limits, rolling update) + LoadBalancer Service |
 | 9 | DevOps principles, delivery pipeline, tools, DevOps on cloud | Everything as code (infrastructure, configuration, pipeline), automated tests gate every deploy, small frequent releases, cloud infrastructure on AWS. Flow: code → build → test → package → release → deploy → verify |
-| 10 | CI/CD with Jenkins | `Jenkinsfile`: SCM polling trigger, 4 stages, JUnit test report, archived jar, deploy only if tests pass |
+| 10 | CI/CD with Jenkins | `Jenkinsfile`: SCM polling trigger, 5 stages, JUnit test report, archived jar, deploy only if tests pass |
 | 11 | CI/CD with Maven | `pom.xml`: Spring Boot parent (dependency management), `clean verify` lifecycle (compile → test → package), Surefire reports, `target/nlp-api.jar` |
 | 12 | Infrastructure as code with Terraform | `terraform/main.tf`: AWS and HTTP providers, variables, data sources, resources, outputs; `init` → `apply` → `destroy`; `terraform validate` in GitHub Actions |
+| 13 | Monitoring | Spring Boot Actuator + Micrometer metrics on a private port, scraped by Prometheus and shown on a Grafana dashboard (`k8s/monitoring.yaml`) |
+| 14 | Security | Trivy image and configuration scans in Jenkins, with a gate on fixable critical vulnerabilities; admin ports limited by IP; non-root container; private metrics port |
 
 ## Team
 - chaitanyasai9666

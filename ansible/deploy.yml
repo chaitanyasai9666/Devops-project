@@ -12,6 +12,12 @@
         wait: true
         wait_timeout: 300
 
+    - name: Apply Prometheus + Grafana
+      kubernetes.core.k8s:
+        src: "{{ playbook_dir }}/../k8s/monitoring.yaml" # src, not template: Grafana's {{ }} labels must stay as they are
+        wait: true
+        wait_timeout: 300
+
     - name: Smoke test the live endpoint
       ansible.builtin.uri:
         url: "http://{{ ansible_default_ipv4.address }}:30080/api/analyze"

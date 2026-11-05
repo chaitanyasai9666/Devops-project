@@ -1,4 +1,4 @@
-// CI/CD: Maven build + test -> Docker image -> load into Kubernetes (k3s) -> Ansible deploy + smoke test
+// CI/CD: Maven build + test -> Docker image -> Trivy scan -> load into Kubernetes (k3s) -> Ansible deploy + smoke test
 pipeline {
     agent any
     triggers { pollSCM('H/2 * * * *') } // checks the repo every ~2 min, no inbound webhook needed
@@ -11,6 +11,16 @@ pipeline {
         }
         stage('Docker: build image') {
             steps { sh 'docker build -t $IMAGE .' }
+        }
+        stage('Security: Trivy scan') {
+            steps {
+                // Reports for review: Terraform/Kubernetes/Dockerfile settings, then the image's known vulnerabilities
+                sh 'trivy config --format table -o trivy-config.txt .'
+                sh 'trivy image --severity HIGH,CRITICAL --format table -o trivy-image.txt $IMAGE'
+                // Stops the deploy if the image has a critical vulnerability that already has a fix
+                sh 'trivy image --severity CRITICAL --ignore-unfixed --exit-code 1 $IMAGE'
+            }
+            post { always { archiveArtifacts artifacts: 'trivy-*.txt', allowEmptyArchive: true } }
         }
         stage('Kubernetes: load image') {
             steps { sh 'docker save $IMAGE | sudo k3s ctr images import -' }
